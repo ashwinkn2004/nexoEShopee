@@ -1,40 +1,43 @@
+import 'package:flutter/material.dart';
 import 'package:nexoeshopee/components/default_button.dart';
 import 'package:nexoeshopee/models/AppReview.dart';
-import 'package:flutter/material.dart';
 
 import '../../../size_config.dart';
 
 class AppReviewDialog extends StatelessWidget {
   final AppReview appReview;
-  AppReviewDialog({
-    required Key key,
+
+  const AppReviewDialog({
+    Key? key,
     required this.appReview,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return SimpleDialog(
-      title: Center(
-        child: Text(
-          "Feedback",
-        ),
+      title: const Center(
+        child: Text("Feedback"),
       ),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(15),
+      ),
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: 16,
+        vertical: 24,
+      ),
       children: [
-        Center(
-          child: TextFormField(
-            initialValue: appReview.feedback,
-            decoration: InputDecoration(
-              hintText: "Feedback for App",
-              labelText: "Feedback (optional)",
-              floatingLabelBehavior: FloatingLabelBehavior.always,
-            ),
-            onChanged: (value) {
-              appReview.feedback = value;
-            },
-            maxLines: null,
-            maxLength: 150,
+        TextFormField(
+          initialValue: appReview.feedback,
+          decoration: const InputDecoration(
+            hintText: "Feedback for App",
+            labelText: "Feedback (optional)",
+            floatingLabelBehavior: FloatingLabelBehavior.always,
           ),
+          onChanged: (value) {
+            appReview.feedback = value;
+          },
+          maxLines: null,
+          maxLength: 150,
         ),
         SizedBox(height: getProportionateScreenHeight(10)),
         Center(
@@ -46,10 +49,6 @@ class AppReviewDialog extends StatelessWidget {
           ),
         ),
       ],
-      contentPadding: EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: 24,
-      ),
     );
   }
 }

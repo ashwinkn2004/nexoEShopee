@@ -326,15 +326,8 @@ class HomeScreenDrawer extends StatelessWidget {
               }
               return;
             }
-            Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => EditProductScreen(
-                    key: UniqueKey(),
-                    productToEdit: null,
-                  ),
-                ),
-            );
+            Navigator.push(context,
+                MaterialPageRoute(builder: (context) => EditProductScreen(productToEdit: null)));
           },
         ),
         ListTile(

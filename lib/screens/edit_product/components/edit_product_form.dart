@@ -23,7 +23,7 @@ import '../../../size_config.dart';
 class EditProductForm extends StatefulWidget {
   final Product product;
   EditProductForm({
-    required Key key,
+     Key? key,
     required this.product,
   }) : super(key: key);
 
@@ -525,14 +525,14 @@ class _EditProductFormState extends State<EditProductForm> {
       );
       return;
     }
-    if (productDetails.searchTags.length < 3) {
+    /*if (productDetails.searchTags.length < 3) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text("Add atleast 3 search tags"),
         ),
       );
       return;
-    }
+    }*/
     String? productId;
     String snackbarMessage = "";
     try {

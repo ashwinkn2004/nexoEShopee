@@ -1,4 +1,5 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
+import 'package:logger/logger.dart';
 import 'package:nexoeshopee/components/async_progress_dialog.dart';
 import 'package:nexoeshopee/components/default_button.dart';
 import 'package:nexoeshopee/components/nothingtoshow_container.dart';
@@ -13,21 +14,20 @@ import 'package:nexoeshopee/services/data_streams/cart_items_stream.dart';
 import 'package:nexoeshopee/services/database/product_database_helper.dart';
 import 'package:nexoeshopee/services/database/user_database_helper.dart';
 import 'package:nexoeshopee/size_config.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/material.dart';
-//import 'package:future_progress_dialog/future_progress_dialog.dart';
-import 'package:logger/logger.dart';
 
 import '../../../utils.dart';
 
 class Body extends StatefulWidget {
+  const Body({super.key});
+
   @override
-  _BodyState createState() => _BodyState();
+  State<Body> createState() => _BodyState();
 }
 
 class _BodyState extends State<Body> {
   final CartItemsStream cartItemsStream = CartItemsStream();
   PersistentBottomSheetController? bottomSheetHandler;
+
   @override
   void initState() {
     super.initState();
@@ -36,8 +36,18 @@ class _BodyState extends State<Body> {
 
   @override
   void dispose() {
-    super.dispose();
     cartItemsStream.dispose();
+    super.dispose();
+  }
+
+  Future<void> refreshPage() async {
+    cartItemsStream.reload();
+  }
+
+  void shutBottomSheet() {
+    if (bottomSheetHandler != null) {
+      bottomSheetHandler?.close();
+    }
   }
 
   @override
@@ -46,7 +56,7 @@ class _BodyState extends State<Body> {
       child: RefreshIndicator(
         onRefresh: refreshPage,
         child: SingleChildScrollView(
-          physics: AlwaysScrollableScrollPhysics(),
+          physics: const AlwaysScrollableScrollPhysics(),
           child: Padding(
             padding: EdgeInsets.symmetric(
                 horizontal: getProportionateScreenWidth(screenPadding)),
@@ -55,16 +65,11 @@ class _BodyState extends State<Body> {
               child: Column(
                 children: [
                   SizedBox(height: getProportionateScreenHeight(10)),
-                  Text(
-                    "Your Cart",
-                    style: headingStyle,
-                  ),
+                  Text("Your Cart", style: headingStyle),
                   SizedBox(height: getProportionateScreenHeight(20)),
                   SizedBox(
                     height: SizeConfig.screenHeight * 0.75,
-                    child: Center(
-                      child: buildCartItemsList(),
-                    ),
+                    child: buildCartItemsList(),
                   ),
                 ],
               ),
@@ -75,18 +80,13 @@ class _BodyState extends State<Body> {
     );
   }
 
-  Future<void> refreshPage() {
-    cartItemsStream.reload();
-    return Future<void>.value();
-  }
-
   Widget buildCartItemsList() {
     return StreamBuilder<List<String>>(
-      stream: cartItemsStream.stream.cast<List<String>>(),
+      stream: cartItemsStream.stream,
       builder: (context, snapshot) {
         if (snapshot.hasData) {
-          List<String> cartItemsId = snapshot.data ?? [];
-          if (cartItemsId.length == 0) {
+          final cartItemsId = snapshot.data!;
+          if (cartItemsId.isEmpty) {
             return Center(
               child: NothingToShowContainer(
                 iconPath: "assets/icons/empty_cart.svg",
@@ -112,13 +112,10 @@ class _BodyState extends State<Body> {
               SizedBox(height: getProportionateScreenHeight(20)),
               Expanded(
                 child: ListView.builder(
-                  padding: EdgeInsets.symmetric(vertical: 16),
-                  physics: BouncingScrollPhysics(),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  physics: const BouncingScrollPhysics(),
                   itemCount: cartItemsId.length,
                   itemBuilder: (context, index) {
-                    if (index >= cartItemsId.length) {
-                      return SizedBox(height: getProportionateScreenHeight(80));
-                    }
                     return buildCartItemDismissible(
                         context, cartItemsId[index], index);
                   },
@@ -127,20 +124,16 @@ class _BodyState extends State<Body> {
             ],
           );
         } else if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        } else {
           return Center(
-            child: CircularProgressIndicator(),
+            child: NothingToShowContainer(
+              iconPath: "assets/icons/network_error.svg",
+              primaryMessage: "Something went wrong",
+              secondaryMessage: "Unable to connect to Database",
+            ),
           );
-        } else if (snapshot.hasError) {
-          final error = snapshot.error;
-          Logger().w(error.toString());
         }
-        return Center(
-          child: NothingToShowContainer(
-            iconPath: "assets/icons/network_error.svg",
-            primaryMessage: "Something went wrong",
-            secondaryMessage: "Unable to connect to Database",
-          ),
-        );
       },
     );
   }
@@ -154,70 +147,50 @@ class _BodyState extends State<Body> {
         DismissDirection.startToEnd: 0.65,
       },
       background: buildDismissibleBackground(),
-      child: buildCartItem(cartItemId, index),
+      child: buildCartItem(cartItemId),
       confirmDismiss: (direction) async {
         if (direction == DismissDirection.startToEnd) {
-          final confirmation = await showConfirmationDialog(
-            context,
-            "Remove Product from Cart?",
-          );
-          if (confirmation) {
-            if (direction == DismissDirection.startToEnd) {
-              bool result = false;
-              String snackbarMessage = "Something went wrong";
-              try {
-                result = await UserDatabaseHelper()
-                    .removeProductFromCart(cartItemId);
-                if (result == true) {
-                  snackbarMessage = "Product removed from cart successfully";
-                  await refreshPage();
-                } else {
-                  throw "Coulnd't remove product from cart due to unknown reason";
-                }
-              } on FirebaseException catch (e) {
-                Logger().w("Firebase Exception: $e");
-                snackbarMessage = "Something went wrong";
-              } catch (e) {
-                Logger().w("Unknown Exception: $e");
-                snackbarMessage = "Something went wrong";
-              } finally {
-                Logger().i(snackbarMessage);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(snackbarMessage),
-                  ),
-                );
+          final confirm = await showConfirmationDialog(
+              context, "Remove Product from Cart?");
+          if (confirm) {
+            bool result = false;
+            String msg = "Something went wrong";
+            try {
+              result =
+                  await UserDatabaseHelper().removeProductFromCart(cartItemId);
+              if (result) {
+                msg = "Product removed from cart successfully";
+                await refreshPage();
               }
-
-              return result;
+            } catch (e) {
+              Logger().e(e.toString());
+            } finally {
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                content: Text(msg),
+              ));
             }
+            return result;
           }
         }
         return false;
       },
-      onDismissed: (direction) {},
     );
   }
 
-  Widget buildCartItem(String cartItemId, int index) {
-    return Container(
-      padding: EdgeInsets.only(
-        bottom: 4,
-        top: 4,
-        right: 4,
-      ),
-      margin: EdgeInsets.symmetric(vertical: 4),
-      decoration: BoxDecoration(
-        border: Border.all(color: kTextColor.withOpacity(0.15)),
-        borderRadius: BorderRadius.circular(15),
-      ),
-      child: FutureBuilder<Product?>(
-        future: ProductDatabaseHelper().getProductWithID(cartItemId),
-        builder: (context, snapshot) {
-          if (snapshot.hasData && snapshot.data != null) {
-            Product product = snapshot.data!;
-            return Row(
-              mainAxisSize: MainAxisSize.max,
+  Widget buildCartItem(String cartItemId) {
+    return FutureBuilder<Product?>(
+      future: ProductDatabaseHelper().getProductWithID(cartItemId),
+      builder: (context, snapshot) {
+        if (snapshot.hasData && snapshot.data != null) {
+          final product = snapshot.data!;
+          return Container(
+            margin: const EdgeInsets.symmetric(vertical: 4),
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              border: Border.all(color: kTextColor.withOpacity(0.15)),
+              borderRadius: BorderRadius.circular(15),
+            ),
+            child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Expanded(
@@ -228,7 +201,7 @@ class _BodyState extends State<Body> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => ProductDetailsScreen(
+                          builder: (_) => ProductDetailsScreen(
                             key: Key(product.id),
                             productId: product.id,
                           ),
@@ -237,119 +210,77 @@ class _BodyState extends State<Body> {
                     },
                   ),
                 ),
-                SizedBox(width: 12),
-                Expanded(
-                  flex: 1,
-                  child: Container(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: 2,
-                      vertical: 12,
-                    ),
-                    decoration: BoxDecoration(
-                      color: kTextColor.withOpacity(0.05),
-                      borderRadius: BorderRadius.circular(15),
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        InkWell(
-                          child: Icon(
-                            Icons.arrow_drop_up,
-                            color: kTextColor,
-                          ),
-                          onTap: () async {
-                            await arrowUpCallback(cartItemId);
-                          },
-                        ),
-                        SizedBox(height: 8),
-                        FutureBuilder<CartItem>(
-                          future: UserDatabaseHelper()
-                              .getCartItemFromId(cartItemId),
-                          builder: (context, snapshot) {
-                            int itemCount = 0;
-                            if (snapshot.hasData) {
-                              final cartItem = snapshot.data;
-                              if (cartItem != null) {
-                                itemCount = cartItem.itemCount;
-                              }
-                            } else if (snapshot.hasError) {
-                              final error = snapshot.error.toString();
-                              Logger().e(error);
-                            }
-                            return Text(
-                              "$itemCount",
-                              style: TextStyle(
-                                color: kPrimaryColor,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w900,
-                              ),
-                            );
-                          },
-                        ),
-                        SizedBox(height: 8),
-                        InkWell(
-                          child: Icon(
-                            Icons.arrow_drop_down,
-                            color: kTextColor,
-                          ),
-                          onTap: () async {
-                            await arrowDownCallback(cartItemId);
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+                const SizedBox(width: 12),
+                buildItemCountControl(cartItemId),
               ],
-            );
-          } else if (snapshot.connectionState == ConnectionState.waiting) {
-            return Center(
-              child: CircularProgressIndicator(),
-            );
-          } else if (snapshot.hasError) {
-            final error = snapshot.error;
-            Logger().w(error.toString());
-            return Center(
-              child: Text(
-                error.toString(),
-              ),
-            );
-          } else {
-            return Center(
-              child: Icon(
-                Icons.error,
-              ),
-            );
-          }
-        },
+            ),
+          );
+        } else if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        } else {
+          Logger().w(snapshot.error.toString());
+          return const Icon(Icons.error);
+        }
+      },
+    );
+  }
+
+  Widget buildItemCountControl(String cartItemId) {
+    return Expanded(
+      flex: 1,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 12),
+        decoration: BoxDecoration(
+          color: kTextColor.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(15),
+        ),
+        child: Column(
+          children: [
+            InkWell(
+              child: const Icon(Icons.arrow_drop_up, color: kTextColor),
+              onTap: () => arrowUpCallback(cartItemId),
+            ),
+            const SizedBox(height: 8),
+            FutureBuilder<CartItem?>(
+              future: UserDatabaseHelper().getCartItemFromId(cartItemId),
+              builder: (context, snapshot) {
+                final count = snapshot.data?.itemCount ?? 0;
+                return Text(
+                  "$count",
+                  style: const TextStyle(
+                      color: kPrimaryColor,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w900),
+                );
+              },
+            ),
+            const SizedBox(height: 8),
+            InkWell(
+              child: const Icon(Icons.arrow_drop_down, color: kTextColor),
+              onTap: () => arrowDownCallback(cartItemId),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget buildDismissibleBackground() {
     return Container(
-      padding: EdgeInsets.only(left: 20),
+      padding: const EdgeInsets.only(left: 20),
       decoration: BoxDecoration(
         color: Colors.red,
         borderRadius: BorderRadius.circular(15),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        mainAxisAlignment: MainAxisAlignment.start,
+      child: const Row(
         children: [
-          Icon(
-            Icons.delete,
-            color: Colors.white,
-          ),
+          Icon(Icons.delete, color: Colors.white),
           SizedBox(width: 4),
-          Text(
-            "Delete",
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-              fontSize: 15,
-            ),
-          ),
+          Text("Delete",
+              style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15)),
         ],
       ),
     );
@@ -357,130 +288,62 @@ class _BodyState extends State<Body> {
 
   Future<void> checkoutButtonCallback() async {
     shutBottomSheet();
-    final confirmation = await showConfirmationDialog(
-      context,
-      "This is just a Project Testing App so, no actual Payment Interface is available.\nDo you want to proceed for Mock Ordering of Products?",
-    );
-    if (confirmation == false) {
-      return;
-    }
+    final confirm = await showConfirmationDialog(
+        context,
+        "This is just a Project Testing App so, no actual Payment Interface is available.\nDo you want to proceed for Mock Ordering of Products?");
+    if (!confirm) return;
+
     final orderFuture = UserDatabaseHelper().emptyCart();
-    orderFuture.then((orderedProductsUid) async {
-      print(orderedProductsUid);
-      final dateTime = DateTime.now();
-      final formatedDateTime =
-          "${dateTime.day}-${dateTime.month}-${dateTime.year}";
-      List<OrderedProduct> orderedProducts = orderedProductsUid
-          .map((e) => OrderedProduct('',
-              productUid: e, orderDate: formatedDateTime))
-          .toList();
-      bool addedProductsToMyProducts = false;
-      String snackbarmMessage = "Something went wrong";
-      try {
-        addedProductsToMyProducts =
-            await UserDatabaseHelper().addToMyOrders(orderedProducts);
-        if (addedProductsToMyProducts) {
-          snackbarmMessage = "Products ordered Successfully";
-        } else {
-          throw "Could not order products due to unknown issue";
-        }
-      } on FirebaseException catch (e) {
-        Logger().e(e.toString());
-        snackbarmMessage = e.toString();
-      } catch (e) {
-        Logger().e(e.toString());
-        snackbarmMessage = e.toString();
-      } finally {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(snackbarmMessage),
-          ),
-        );
-      }
-      await showDialog(
-        context: context,
-        builder: (context) {
-          return AsyncProgressDialog(
-            orderFuture,
-            message: Text("Placing the Order"),
-          );
-        },
-      );
-    }).catchError((e) {
-      Logger().e(e.toString());
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("Something went wrong"),
-        ),
-      );
-    });
     await showDialog(
       context: context,
-      builder: (context) {
-        return AsyncProgressDialog(
-          orderFuture,
-          message: Text("Placing the Order"),
-        );
-      },
+      builder: (context) => AsyncProgressDialog(
+        orderFuture,
+        message: const Text("Placing the Order"),
+      ),
     );
-    await refreshPage();
-  }
 
-  void shutBottomSheet() {
-    if (bottomSheetHandler != null) {
-      bottomSheetHandler?.close();
+    try {
+      final orderedProductsUid = await orderFuture;
+      if (orderedProductsUid != null) {
+        final now = DateTime.now();
+        final formatted = "${now.day}-${now.month}-${now.year}";
+        final orders = orderedProductsUid
+            .map((e) => OrderedProduct('', productUid: e, orderDate: formatted))
+            .toList();
+
+        final added = await UserDatabaseHelper().addToMyOrders(orders);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(
+              added ? "Products ordered Successfully" : "Order failed."),
+        ));
+      }
+    } catch (e) {
+      Logger().e(e.toString());
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Something went wrong")),
+      );
     }
+
+    await refreshPage();
   }
 
   Future<void> arrowUpCallback(String cartItemId) async {
     shutBottomSheet();
     final future = UserDatabaseHelper().increaseCartItemCount(cartItemId);
-    future.then((status) async {
-      if (status) {
-        await refreshPage();
-      } else {
-        throw "Couldn't perform the operation due to some unknown issue";
-      }
-    }).catchError((e) {
-      Logger().e(e.toString());
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text("Something went wrong"),
-      ));
-    });
     await showDialog(
       context: context,
-      builder: (context) {
-        return AsyncProgressDialog(
-          future,
-          message: Text("Please wait"),
-        );
-      },
+      builder: (_) => AsyncProgressDialog(future, message: const Text("Please wait")),
     );
+    await refreshPage();
   }
 
   Future<void> arrowDownCallback(String cartItemId) async {
     shutBottomSheet();
     final future = UserDatabaseHelper().decreaseCartItemCount(cartItemId);
-    future.then((status) async {
-      if (status) {
-        await refreshPage();
-      } else {
-        throw "Couldn't perform the operation due to some unknown issue";
-      }
-    }).catchError((e) {
-      Logger().e(e.toString());
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text("Something went wrong"),
-      ));
-    });
     await showDialog(
       context: context,
-      builder: (context) {
-        return AsyncProgressDialog(
-          future,
-          message: Text("Please wait"),
-        );
-      },
+      builder: (_) => AsyncProgressDialog(future, message: const Text("Please wait")),
     );
+    await refreshPage();
   }
 }

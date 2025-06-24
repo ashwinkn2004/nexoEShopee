@@ -1,3 +1,4 @@
+// body.dart
 import 'package:nexoeshopee/constants.dart';
 import 'package:nexoeshopee/models/AppReview.dart';
 import 'package:nexoeshopee/services/authentification/authentification_service.dart';
@@ -13,11 +14,13 @@ import 'package:url_launcher/url_launcher.dart';
 import 'app_review_dialog.dart';
 
 class Body extends StatelessWidget {
+  const Body({super.key});
+
   @override
   Widget build(BuildContext context) {
     return SafeArea(
       child: SingleChildScrollView(
-        physics: BouncingScrollPhysics(),
+        physics: const BouncingScrollPhysics(),
         child: Padding(
           padding: EdgeInsets.symmetric(
             horizontal: getProportionateScreenWidth(screenPadding),
@@ -27,93 +30,42 @@ class Body extends StatelessWidget {
             child: Column(
               children: [
                 SizedBox(height: getProportionateScreenHeight(10)),
-                Text(
-                  "About Developer",
-                  style: headingStyle,
-                ),
+                Text("About Developer", style: headingStyle),
                 SizedBox(height: getProportionateScreenHeight(50)),
                 InkWell(
                   onTap: () async {
-                    const String linkedInUrl =
-                        "https://www.linkedin.com/in/imrb7here";
-                    await launchExternalUrl(linkedInUrl);
+                    await launchExternalUrl(
+                      "https://www.linkedin.com/in/imrb7here",
+                    );
                   },
                   child: buildDeveloperAvatar(),
                 ),
                 SizedBox(height: getProportionateScreenHeight(30)),
-                Text(
+                const Text(
                   '" Rahul Badgujar "',
-                  style: TextStyle(
-                    fontSize: 25,
-                    fontWeight: FontWeight.w900,
-                  ),
+                  style: TextStyle(fontSize: 25, fontWeight: FontWeight.w900),
                 ),
-                Text(
+                const Text(
                   "PCCoE Pune",
-                  style: TextStyle(
-                    fontSize: 21,
-                    fontWeight: FontWeight.w500,
-                  ),
+                  style: TextStyle(fontSize: 21, fontWeight: FontWeight.w500),
                 ),
                 SizedBox(height: getProportionateScreenHeight(30)),
-                Row(
-                  children: [
-                    Spacer(),
-                    IconButton(
-                      icon: SvgPicture.asset(
-                        "assets/icons/github_icon.svg",
-                        color: kTextColor.withOpacity(0.75),
-                      ),
-                      color: kTextColor.withOpacity(0.75),
-                      iconSize: 40,
-                      padding: EdgeInsets.all(16),
-                      onPressed: () async {
-                        const String githubUrl = "https://github.com/imRB7here";
-                        await launchExternalUrl(githubUrl);
-                      },
-                    ),
-                    IconButton(
-                      icon: SvgPicture.asset(
-                        "assets/icons/linkedin_icon.svg",
-                        color: kTextColor.withOpacity(0.75),
-                      ),
-                      iconSize: 40,
-                      padding: EdgeInsets.all(16),
-                      onPressed: () async {
-                        const String linkedInUrl =
-                            "https://www.linkedin.com/in/imrb7here";
-                        await launchExternalUrl(linkedInUrl);
-                      },
-                    ),
-                    IconButton(
-                      icon: SvgPicture.asset("assets/icons/instagram_icon.svg",
-                          color: kTextColor.withOpacity(0.75)),
-                      iconSize: 40,
-                      padding: EdgeInsets.all(16),
-                      onPressed: () async {
-                        const String instaUrl =
-                            "https://www.instagram.com/_rahul.badgujar_";
-                        await launchExternalUrl(instaUrl);
-                      },
-                    ),
-                    Spacer(),
-                  ],
-                ),
+                
                 SizedBox(height: getProportionateScreenHeight(50)),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Spacer(),
+                    const Spacer(),
                     IconButton(
-                      icon: Icon(Icons.thumb_up),
+                      icon: const Icon(Icons.thumb_up),
                       color: kTextColor.withOpacity(0.75),
                       iconSize: 50,
-                      padding: EdgeInsets.all(16),
+                      padding: const EdgeInsets.all(16),
                       onPressed: () {
                         submitAppReview(context, liked: true);
                       },
                     ),
-                    Text(
+                    const Text(
                       "Liked the app?",
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
@@ -121,17 +73,17 @@ class Body extends StatelessWidget {
                       ),
                     ),
                     IconButton(
-                      icon: Icon(Icons.thumb_down),
-                      padding: EdgeInsets.all(16),
+                      icon: const Icon(Icons.thumb_down),
+                      padding: const EdgeInsets.all(16),
                       color: kTextColor.withOpacity(0.75),
                       iconSize: 50,
                       onPressed: () {
                         submitAppReview(context, liked: false);
                       },
                     ),
-                    Spacer(),
+                    const Spacer(),
                   ],
-                )
+                ),
               ],
             ),
           ),
@@ -140,43 +92,48 @@ class Body extends StatelessWidget {
     );
   }
 
-  Widget buildDeveloperAvatar() {
-    return FutureBuilder<String>(
-        future: FirestoreFilesAccess().getDeveloperImage(),
-        builder: (context, snapshot) {
-          if (snapshot.hasData) {
-            final url = snapshot.data;
-            return CircleAvatar(
-              radius: SizeConfig.screenWidth * 0.3,
-              backgroundColor: kTextColor.withOpacity(0.75),
-              backgroundImage: NetworkImage(url!),
-            );
-          } else if (snapshot.hasError) {
-            final error = snapshot.error.toString();
-            Logger().e(error);
-          }
-          return CircleAvatar(
-            radius: SizeConfig.screenWidth * 0.3,
-            backgroundColor: kTextColor.withOpacity(0.75),
-          );
-        });
-  }
-
   Future<void> launchExternalUrl(String url) async {
     final Uri uri = Uri.parse(url);
     try {
       if (await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
+        final launched = await launchUrl(
+          uri,
+          mode: LaunchMode.externalApplication,
+        );
+        if (!launched) {
+          throw Exception("Could not launch $url");
+        }
       } else {
-        Logger().i("$url URL was unable to launch");
+        throw Exception("Device cannot launch URL");
       }
     } catch (e) {
-      Logger().e("Exception while launching URL: $e");
+      debugPrint("Error launching URL: $e");
     }
   }
 
-  Future<void> submitAppReview(BuildContext context,
-      {bool liked = true}) async {
+  Widget _buildIcon(String assetPath, String url) {
+    return IconButton(
+      icon: SvgPicture.asset(assetPath, color: kTextColor.withOpacity(0.75)),
+      iconSize: 40,
+      padding: const EdgeInsets.all(16),
+      onPressed: () async {
+        await launchExternalUrl(url);
+      },
+    );
+  }
+
+  Widget buildDeveloperAvatar() {
+    return CircleAvatar(
+      radius: SizeConfig.screenWidth * 0.3,
+      backgroundColor: kTextColor.withOpacity(0.75),
+      backgroundImage: const AssetImage("assets/images/developer.jpeg"),
+    );
+  }
+
+  Future<void> submitAppReview(
+    BuildContext context, {
+    bool liked = true,
+  }) async {
     AppReview? prevReview;
     try {
       prevReview = await AppReviewDatabaseHelper().getAppReviewOfCurrentUser();
@@ -184,50 +141,33 @@ class Body extends StatelessWidget {
       Logger().w("Firebase Exception: $e");
     } catch (e) {
       Logger().w("Unknown Exception: $e");
-    } finally {
-      if (prevReview == null) {
-        prevReview = AppReview(
-          AuthentificationService().currentUser.uid,
-          liked: liked,
-          feedback: "",
-        );
-      }
     }
-
-    final AppReview result = await showDialog(
-      context: context,
-      builder: (context) {
-        return AppReviewDialog(
-          key: UniqueKey(),
-          appReview: prevReview!,
-        );
-      },
+    prevReview ??= AppReview(
+      AuthentificationService().currentUser.uid,
+      liked: liked,
+      feedback: "",
     );
+
+    final AppReview? result = await showDialog(
+      context: context,
+      builder: (_) => AppReviewDialog(key: UniqueKey(), appReview: prevReview!),
+    );
+
     if (result != null) {
       result.liked = liked;
-      bool reviewAdded = false;
       String snackbarMessage = "An unknown error occurred";
       try {
-        reviewAdded = await AppReviewDatabaseHelper().editAppReview(result);
-        if (reviewAdded == true) {
-          snackbarMessage = "Feedback submitted successfully";
-        } else {
-          throw "Coulnd't add feeback due to unknown reason";
-        }
-      } on FirebaseException catch (e) {
-        Logger().w("Firebase Exception: $e");
-        snackbarMessage = e.toString();
+        final success = await AppReviewDatabaseHelper().editAppReview(result);
+        snackbarMessage = success
+            ? "Feedback submitted successfully"
+            : "Could not submit feedback";
       } catch (e) {
-        Logger().w("Unknown Exception: $e");
         snackbarMessage = e.toString();
-      } finally {
-        Logger().i(snackbarMessage);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(snackbarMessage),
-          ),
-        );
+        Logger().e(snackbarMessage);
       }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(snackbarMessage)));
     }
   }
 }
